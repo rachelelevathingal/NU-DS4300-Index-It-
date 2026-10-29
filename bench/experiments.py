@@ -112,6 +112,69 @@ def E1_build(writer, tracks, reps):
 
             print(f"E1: {name}, n={n} complete")
 
+def E2_point_lookup(writer, tracks, reps):
+    # Step 1: Get Spotify track IDs
+    pairs = key_value_pairs(tracks, "track_id")
+
+    # Step 2: Use the same dataset sizes as E1
+    sizes = [1000, 3000, 10000, 30000, 60000, len(pairs)]
+
+    for n in sizes:
+        subset = pairs[:n]
+        keys = [key for key, value in subset]
+
+        # Step 3: Generate 500 successful searches
+        hits = point_queries(
+            keys,
+            n_queries=500,
+            hit_rate=1.0,
+            seed=SEED + n,
+        )
+
+        # Step 4: Generate 500 unsuccessful searches
+        misses = point_queries(
+            keys,
+            n_queries=500,
+            hit_rate=0.0,
+            seed=SEED + n + 1,
+        )
+
+        # Step 5: Test every index
+        for name in ALL_INDEXES:
+            index = make_index(name)
+
+            # Build the index before timing searches
+            time_build(index, subset)
+
+            # Step 6: Repeat the measurements
+            for rep in range(reps):
+                for operation, rate, queries in [
+                    ("point_hit", 1.0, hits),
+                    ("point_miss", 0.0, misses),
+                ]:
+                    index.reset_stats()
+
+                    # Measure the searches
+                    ns = time_batch(index.search, queries)
+
+                    # Step 7: Save the results
+                    writer.record(
+                        index,
+                        experiment="E2_point_lookup",
+                        dataset="spotify",
+                        key_column="track_id",
+                        insert_order="file",
+                        n_keys=n,
+                        operation=operation,
+                        operation_param=rate,
+                        n_ops=len(queries),
+                        rep=rep,
+                        total_ns=ns,
+                    )
+
+            print(f"E2: {name}, n={n} complete", flush=True)
+
+
 
 
     
@@ -121,6 +184,7 @@ def E1_build(writer, tracks, reps):
 EXPERIMENTS: dict[str, Callable[[ResultsWriter, list[dict], int], None]] = {
     "example": example_point_lookups,
     "E1_build": E1_build,
+    "E2_point_lookup": E2_point_lookup,
 }
 
 
