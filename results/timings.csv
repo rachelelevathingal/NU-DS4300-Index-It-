@@ -1,0 +1,1 @@
+session_id,timestamp_utc,member,machine_id,code_version,python_version,os,arch,cpu_model_detected,cpu_count,mem_total_gb,in_docker,pythonhashseed,experiment,dataset,key_column,insert_order,n_keys,operation,operation_param,n_ops,rep,total_ns,index_type,index_param,comparisons,nodes_visited,rotations,splits,resizes,height,memory_bytes,notes
