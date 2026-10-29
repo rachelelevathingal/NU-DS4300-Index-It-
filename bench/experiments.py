@@ -68,10 +68,62 @@ def example_point_lookups(writer: ResultsWriter, tracks: list[dict], reps: int) 
             print(f"  n={n:>7,}  {name:<14} done", flush=True)
 
 
+def E1_build(writer, tracks, reps):
+    # Get Spotify track IDs and their row IDs
+    pairs = key_value_pairs(tracks, "track_id")
+
+    # Six different dataset sizes
+    sizes = [1000, 3000, 10000, 30000, 60000, len(pairs)]
+
+    for n in sizes:
+        subset = pairs[:n]
+
+        # Test all five indexes and two references
+        for name in ALL_INDEXES:
+
+            # Measure memory separately from timing
+            memory = build_memory_bytes(
+                lambda: make_index(name), subset
+            )
+
+            # Repeat each test five times by default
+            for rep in range(reps):
+                index = make_index(name)
+                index.reset_stats()
+
+                # Measure how long building takes
+                ns = time_build(index, subset)
+
+                # Save the measurement
+                writer.record(
+                    index,
+                    experiment="E1_build",
+                    dataset="spotify",
+                    key_column="track_id",
+                    insert_order="file",
+                    n_keys=n,
+                    operation="build",
+                    operation_param="",
+                    n_ops=len(subset),
+                    rep=rep,
+                    total_ns=ns,
+                    memory_bytes=memory,
+                )
+
+            print(f"E1: {name}, n={n} complete")
+
+
+
+    
+
+
 # Register experiments here: name -> function(writer, tracks, reps).
 EXPERIMENTS: dict[str, Callable[[ResultsWriter, list[dict], int], None]] = {
     "example": example_point_lookups,
+    "E1_build": E1_build,
 }
+
+
 
 
 def main(argv: Optional[Sequence[str]] = None) -> None:
@@ -90,3 +142,6 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
 
 if __name__ == "__main__":
     main()
+
+
+
