@@ -28,6 +28,7 @@ from bench.results import ResultsWriter
 from bench.timing import build_memory_bytes, time_batch, time_build
 from indexes import ALL_INDEXES, make_index
 from loaders.spotify import key_value_pairs, load_tracks
+from datagen.synthetic import point_queries
 
 SEED = 4300
 
