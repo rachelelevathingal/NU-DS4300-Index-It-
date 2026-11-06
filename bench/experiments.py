@@ -28,7 +28,7 @@ from bench.results import ResultsWriter
 from bench.timing import build_memory_bytes, time_batch, time_build
 from indexes import ALL_INDEXES, make_index
 from loaders.spotify import key_value_pairs, load_tracks
-from datagen.synthetic import point_queries
+from datagen.synthetic import point_queries, prefix_queries, range_queries
 
 SEED = 4300
 
@@ -175,17 +175,102 @@ def E2_point_lookup(writer, tracks, reps):
 
             print(f"E2: {name}, n={n} complete", flush=True)
 
-
-
-
+def E3_range_tempo(writer: ResultsWriter, tracks: list[dict], reps: int) -> None:
+    pairs = key_value_pairs(tracks, "tempo")
+    n = len(pairs)
+    keys = [key for key, _ in pairs]
+ 
+    selectivities = [0.0001, 0.001, 0.01, 0.05, 0.1, 0.25]
+    n_queries = 100
+ 
+    # generate selectivities / ranges to test
+    workloads = {
+        sel: range_queries(keys, n_queries, sel, seed=SEED + int(sel * 10_000))
+        for sel in selectivities
+    }
+ 
+    for name in ALL_INDEXES:
+        # build once per index, testing searches
+        index = make_index(name)
+        time_build(index, pairs)
+ 
+        for sel in selectivities:
+            ranges = workloads[sel]
+ 
+            # repeat measurements
+            for rep in range(reps):
+                index.reset_stats()
+                # test range searching for each range
+                ns = time_batch(lambda q: index.range_search(*q), ranges)
+ 
+                writer.record(
+                    index,
+                    experiment="E3_range_tempo",
+                    dataset="spotify",
+                    key_column="tempo",
+                    insert_order="file",
+                    n_keys=n,
+                    operation="range",
+                    operation_param=sel,
+                    n_ops=len(ranges),
+                    rep=rep,
+                    total_ns=ns,
+                )
+ 
+            print(f"E3: {name}, selectivity={sel} complete", flush=True)
     
-
+def E4_prefix_track(writer: ResultsWriter, tracks: list[dict], reps: int) -> None:
+    """Prefix-search cost vs prefix length (1-5) on track_name, all rows."""
+    pairs = key_value_pairs(tracks, "track_name")  # file order, normalized text keys
+    n = len(pairs)
+    keys = [key for key, _ in pairs]
+ 
+    prefix_lengths = [1, 2, 3, 4, 5]
+    n_queries = 100  # short prefixes match many rows, so keep batches modest
+ 
+    # Generate prefixes OUTSIDE the timed region; same prefixes for every index.
+    workloads = {
+        length: prefix_queries(keys, n_queries, length, seed=SEED + length)
+        for length in prefix_lengths
+    }
+ 
+    for name in ALL_INDEXES:
+        # Build once per index; prefix searches don't modify it.
+        index = make_index(name)
+        time_build(index, pairs)
+ 
+        for length in prefix_lengths:
+            prefixes = workloads[length]
+ 
+            for rep in range(reps):
+                index.reset_stats()
+                ns = time_batch(index.prefix_search, prefixes)
+ 
+                writer.record(
+                    index,
+                    experiment="E4_prefix_track",
+                    dataset="spotify",
+                    key_column="track_name",
+                    insert_order="file",
+                    n_keys=n,
+                    operation="prefix",
+                    operation_param=length,
+                    n_ops=len(prefixes),
+                    rep=rep,
+                    total_ns=ns,
+                )
+ 
+            print(f"E4: {name}, prefix length={length} complete", flush=True)
+        
+    
 
 # Register experiments here: name -> function(writer, tracks, reps).
 EXPERIMENTS: dict[str, Callable[[ResultsWriter, list[dict], int], None]] = {
     "example": example_point_lookups,
     "E1_build": E1_build,
     "E2_point_lookup": E2_point_lookup,
+    "E3_range_tempo": E3_range_tempo,
+    "E4_prefix_track": E4_prefix_track,
 }
 
 
