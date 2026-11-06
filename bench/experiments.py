@@ -28,6 +28,7 @@ from bench.results import ResultsWriter
 from bench.timing import build_memory_bytes, time_batch, time_build
 from indexes import ALL_INDEXES, make_index
 from loaders.spotify import key_value_pairs, load_tracks
+from datagen.synthetic import point_queries
 
 SEED = 4300
 
@@ -68,10 +69,126 @@ def example_point_lookups(writer: ResultsWriter, tracks: list[dict], reps: int) 
             print(f"  n={n:>7,}  {name:<14} done", flush=True)
 
 
+def E1_build(writer, tracks, reps):
+    # Get Spotify track IDs and their row IDs
+    pairs = key_value_pairs(tracks, "track_id")
+
+    # Six different dataset sizes
+    sizes = [1000, 3000, 10000, 30000, 60000, len(pairs)]
+
+    for n in sizes:
+        subset = pairs[:n]
+
+        # Test all five indexes and two references
+        for name in ALL_INDEXES:
+
+            # Measure memory separately from timing
+            memory = build_memory_bytes(
+                lambda: make_index(name), subset
+            )
+
+            # Repeat each test five times by default
+            for rep in range(reps):
+                index = make_index(name)
+                index.reset_stats()
+
+                # Measure how long building takes
+                ns = time_build(index, subset)
+
+                # Save the measurement
+                writer.record(
+                    index,
+                    experiment="E1_build",
+                    dataset="spotify",
+                    key_column="track_id",
+                    insert_order="file",
+                    n_keys=n,
+                    operation="build",
+                    operation_param="",
+                    n_ops=len(subset),
+                    rep=rep,
+                    total_ns=ns,
+                    memory_bytes=memory,
+                )
+
+            print(f"E1: {name}, n={n} complete")
+
+def E2_point_lookup(writer, tracks, reps):
+    # Step 1: Get Spotify track IDs
+    pairs = key_value_pairs(tracks, "track_id")
+
+    # Step 2: Use the same dataset sizes as E1
+    sizes = [1000, 3000, 10000, 30000, 60000, len(pairs)]
+
+    for n in sizes:
+        subset = pairs[:n]
+        keys = [key for key, value in subset]
+
+        # Step 3: Generate 500 successful searches
+        hits = point_queries(
+            keys,
+            n_queries=500,
+            hit_rate=1.0,
+            seed=SEED + n,
+        )
+
+        # Step 4: Generate 500 unsuccessful searches
+        misses = point_queries(
+            keys,
+            n_queries=500,
+            hit_rate=0.0,
+            seed=SEED + n + 1,
+        )
+
+        # Step 5: Test every index
+        for name in ALL_INDEXES:
+            index = make_index(name)
+
+            # Build the index before timing searches
+            time_build(index, subset)
+
+            # Step 6: Repeat the measurements
+            for rep in range(reps):
+                for operation, rate, queries in [
+                    ("point_hit", 1.0, hits),
+                    ("point_miss", 0.0, misses),
+                ]:
+                    index.reset_stats()
+
+                    # Measure the searches
+                    ns = time_batch(index.search, queries)
+
+                    # Step 7: Save the results
+                    writer.record(
+                        index,
+                        experiment="E2_point_lookup",
+                        dataset="spotify",
+                        key_column="track_id",
+                        insert_order="file",
+                        n_keys=n,
+                        operation=operation,
+                        operation_param=rate,
+                        n_ops=len(queries),
+                        rep=rep,
+                        total_ns=ns,
+                    )
+
+            print(f"E2: {name}, n={n} complete", flush=True)
+
+
+
+
+    
+
+
 # Register experiments here: name -> function(writer, tracks, reps).
 EXPERIMENTS: dict[str, Callable[[ResultsWriter, list[dict], int], None]] = {
     "example": example_point_lookups,
+    "E1_build": E1_build,
+    "E2_point_lookup": E2_point_lookup,
 }
+
+
 
 
 def main(argv: Optional[Sequence[str]] = None) -> None:
@@ -90,3 +207,6 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
 
 if __name__ == "__main__":
     main()
+
+
+
