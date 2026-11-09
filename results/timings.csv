@@ -629,6 +629,7 @@ session_id,timestamp_utc,member,machine_id,code_version,python_version,os,arch,c
 26d932c399ee,2026-11-05T17:35:28+00:00,rachel,rachel-mac,c2406c6,3.13.17,Linux 7.0.14-linuxkit,aarch64,unknown,8,3.82,True,0,E2_point_lookup,spotify,track_id,file,114000,point_miss,0.0,500,3,240167,ref_bisect,,,,,,,,,
 26d932c399ee,2026-11-05T17:35:28+00:00,rachel,rachel-mac,c2406c6,3.13.17,Linux 7.0.14-linuxkit,aarch64,unknown,8,3.82,True,0,E2_point_lookup,spotify,track_id,file,114000,point_hit,1.0,500,4,711292,ref_bisect,,,,,,,,,
 26d932c399ee,2026-11-05T17:35:28+00:00,rachel,rachel-mac,c2406c6,3.13.17,Linux 7.0.14-linuxkit,aarch64,unknown,8,3.82,True,0,E2_point_lookup,spotify,track_id,file,114000,point_miss,0.0,500,4,241584,ref_bisect,,,,,,,,,
+<<<<<<< Updated upstream
 62d13b87da40,2026-11-09T18:26:56+00:00,kimberly,kimberly-mb,3d6cb30-dirty,3.13.18,Linux 7.0.14-linuxkit,aarch64,unknown,8,3.82,True,0,E5_key_order,synthetic,random_str8,random,10000,build,,10000,0,1179083,unsorted_list,,0,0,0,0,0,,,
 62d13b87da40,2026-11-09T18:26:57+00:00,kimberly,kimberly-mb,3d6cb30-dirty,3.13.18,Linux 7.0.14-linuxkit,aarch64,unknown,8,3.82,True,0,E5_key_order,synthetic,random_str8,random,10000,point_hit,1.0,500,0,163579917,unsorted_list,,5000000,0,0,0,0,,,
 62d13b87da40,2026-11-09T18:26:57+00:00,kimberly,kimberly-mb,3d6cb30-dirty,3.13.18,Linux 7.0.14-linuxkit,aarch64,unknown,8,3.82,True,0,E5_key_order,synthetic,random_str8,random,10000,build,,10000,1,1164250,unsorted_list,,0,0,0,0,0,,,
