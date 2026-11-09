@@ -28,7 +28,7 @@ from bench.results import ResultsWriter
 from bench.timing import build_memory_bytes, time_batch, time_build
 from indexes import ALL_INDEXES, make_index
 from loaders.spotify import key_value_pairs, load_tracks
-from datagen.synthetic import point_queries, prefix_queries, range_queries
+from datagen.synthetic import point_queries, prefix_queries, range_queries, random_keys, arrange
 
 SEED = 4300
 
@@ -262,7 +262,111 @@ def E4_prefix_track(writer: ResultsWriter, tracks: list[dict], reps: int) -> Non
  
             print(f"E4: {name}, prefix length={length} complete", flush=True)
         
-    
+def E5_key_order(writer: ResultsWriter, tracks: list[dict], reps: int) -> None:
+    """Does arrival order matter? Synthetic keys, four orders, all indexes."""
+    sizes = [10_000, 50_000, 100_000]
+    arrange_orders = ["random", "sorted", "reversed", "nearly_sorted"]
+ 
+    for n in sizes:
+        # Prepare keys and queries OUTSIDE the timed region.
+        base_keys = random_keys(n, length=8, seed=SEED + n)
+        # Same 500 hit queries for every order and index at this size.
+        queries = point_queries(base_keys, n_queries=500, hit_rate=1.0, seed=SEED + n + 1)
+ 
+        for order in arrange_orders:
+            arranged = arrange(base_keys, order, seed=SEED + n + 2)
+            pairs = [(key, row_id) for row_id, key in enumerate(arranged)]
+ 
+            for name in ALL_INDEXES:
+                for rep in range(reps):
+                    common = dict(
+                        experiment="E5_key_order", dataset="synthetic",
+                        key_column="random_str8", insert_order=order,
+                        n_keys=n, rep=rep,
+                    )
+ 
+                    # Fresh index per replicate; counters then reflect the build.
+                    index = make_index(name)
+                    ns = time_build(index, pairs)
+                    height = index.structure_info().get("height", "")  # after timing
+                    writer.record(
+                        index, **common, operation="build", operation_param="",
+                        n_ops=n, total_ns=ns, height=height,
+                    )
+ 
+                    index.reset_stats()
+                    ns = time_batch(index.search, queries)
+                    writer.record(
+                        index, **common, operation="point_hit", operation_param=1.0,
+                        n_ops=len(queries), total_ns=ns, height=height,
+                    )
+ 
+                print(f"E5: n={n:,} order={order:<13} {name} complete", flush=True)
+ 
+    print("E5: complete", flush=True)
+ 
+ 
+def E6_bplus_tree_order(writer: ResultsWriter, tracks: list[dict], reps: int) -> None:
+    """B+ tree order sweep: build, point lookups (E2 design), ranges (E3 design)."""
+    orders = [3, 4, 8, 16, 32, 64, 128, 256, 512]
+    selectivity = 0.01
+ 
+    # E2 design: track_id, all rows, 500 hits and 500 misses.
+    id_pairs = key_value_pairs(tracks, "track_id")
+    id_keys = [key for key, _ in id_pairs]
+    hits = point_queries(id_keys, n_queries=500, hit_rate=1.0, seed=SEED + len(id_keys))
+    misses = point_queries(id_keys, n_queries=500, hit_rate=0.0, seed=SEED + len(id_keys) + 1)
+ 
+    # E3 design: tempo, all rows, selectivity 0.01.
+    tempo_pairs = key_value_pairs(tracks, "tempo")
+    tempo_keys = [key for key, _ in tempo_pairs]
+    ranges = range_queries(
+        tempo_keys, 100, selectivity, seed=SEED + int(selectivity * 10_000)
+    )
+ 
+    for order in orders:
+        for rep in range(reps):
+            # ---- track_id: build + point lookups
+            common = dict(
+                experiment="E6_bplus_order", dataset="spotify", key_column="track_id",
+                insert_order="file", n_keys=len(id_pairs), rep=rep,
+            )
+            index = make_index("bplus_tree", order=order)
+            ns = time_build(index, id_pairs)
+            height = index.structure_info().get("height", "")
+            writer.record(
+                index, **common, operation="build", operation_param="",
+                n_ops=len(id_pairs), total_ns=ns, height=height,
+            )
+            for operation, rate, queries in [("point_hit", 1.0, hits), ("point_miss", 0.0, misses)]:
+                index.reset_stats()
+                ns = time_batch(index.search, queries)
+                writer.record(
+                    index, **common, operation=operation, operation_param=rate,
+                    n_ops=len(queries), total_ns=ns, height=height,
+                )
+ 
+            # ---- tempo: build + range queries
+            common = dict(
+                experiment="E6_bplus_order", dataset="spotify", key_column="tempo",
+                insert_order="file", n_keys=len(tempo_pairs), rep=rep,
+            )
+            index = make_index("bplus_tree", order=order)
+            ns = time_build(index, tempo_pairs)
+            height = index.structure_info().get("height", "")
+            writer.record(
+                index, **common, operation="build", operation_param="",
+                n_ops=len(tempo_pairs), total_ns=ns, height=height,
+            )
+            index.reset_stats()
+            ns = time_batch(lambda q: index.range_search(*q), ranges)
+            writer.record(
+                index, **common, operation="range", operation_param=selectivity,
+                n_ops=len(ranges), total_ns=ns, height=height,
+            )
+ 
+        print(f"E6: order={order} complete", flush=True)
+ 
 
 # Register experiments here: name -> function(writer, tracks, reps).
 EXPERIMENTS: dict[str, Callable[[ResultsWriter, list[dict], int], None]] = {
@@ -271,6 +375,8 @@ EXPERIMENTS: dict[str, Callable[[ResultsWriter, list[dict], int], None]] = {
     "E2_point_lookup": E2_point_lookup,
     "E3_range_tempo": E3_range_tempo,
     "E4_prefix_track": E4_prefix_track,
+    "E5_key_order": E5_key_order,
+    "E6_bplus_tree_order": E6_bplus_tree_order
 }
 
 
