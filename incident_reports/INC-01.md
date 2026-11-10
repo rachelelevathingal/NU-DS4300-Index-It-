@@ -1,4 +1,4 @@
-# INC-NN: <one-line title, e.g. "Hash table build cost grows with n">
+# INC-NN: <one-line title, e.g. "Sorted-List Point Lookup Uses Inefficient Linear Search">
 
 Copy this file to `INC-01.md`, `INC-02.md`, … (one per bug) and fill in every section.
 Keep each heading exactly as written; `make check` looks for them.
