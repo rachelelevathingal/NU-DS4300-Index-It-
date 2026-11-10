@@ -53,16 +53,15 @@ class SortedListIndex(Index):
     def search(self, key: Any) -> list[Any]:
         # The keys are sorted, so we can stop as soon as we have passed the
         # place where ``key`` would be.
-        comparisons = 0
-        for i, k in enumerate(self._keys):
-            comparisons += 1
-            if k == key:
-                self.stats.comparisons += comparisons
-                return self._values[i]
-            if k > key:
-                break
-        self.stats.comparisons += comparisons
-        return []
+
+        #Use binary search to locate the key 
+        pos = self._bisect_left(key)
+
+        if pos < len(self._keys):
+            self.stats.comparisons += 1
+            if self._keys[pos] == key:
+                return self._values[pos]
+        return[]
 
     def range_search(self, lo: Any, hi: Any) -> list[Any]:
         result: list[Any] = []
