@@ -7,6 +7,8 @@ Keep each heading exactly as written; `make check` looks for them.
 
 Two or three sentences: what was slow, how much slower, which index and operation, and what fixed it.
 
+The hash-table implementation experienced inefficient build performance because its capacity increased by a fixed 1,024 buckets each time it resized. This caused frequent rehashing as the dataset grew. We fixed the issue by changing the resizing strategy to double the table's capacity, reducing median build time from 2,993.17 milliseconds to 133.42 milliseconds at 114,000 tracks, a 22.43× speedup.
+
 ## Detection
 
 Which experiment and which figure first showed the problem? What made you suspicious?
@@ -64,15 +66,74 @@ A more efficient approach is to double the table's capacity during resizing. Thi
 
 The change you made, as a diff (`git diff <before>..<after> -- indexes/`), and the commit hash.
 
+The hash-table performance issue was fixed by modifying the `_grow()` method in `indexes/hash_table.py`. The original implementation increased the capacity by a fixed 1,024 buckets each time the table resized, causing frequent rehashing as the dataset grew.
+
+We replaced this with a capacity-doubling strategy, allowing the hash table to grow more efficiently and reducing the number of resizing operations.
+
+**Before-fix code version:** `31da8dc`
+
+**After-fix commit:** `eb3808a`
+
+**Git diff:**
+
+```diff
+ def _grow(self) -> None:
+     """Move every entry into a larger list of buckets."""
+-    new_capacity = len(self._buckets) + self.GROWTH_STEP
++    new_capacity = len(self._buckets) * 2
+     new_buckets: list[list[tuple[Any, list[Any]]]] = [[] for _ in range(new_capacity)]
+     for bucket in self._buckets:
+```
+
+
+
+
+
 ## Verification
 
 Before/after comparison on the same workload and seeds (same experiment, two `code_version`s).
 Confirm `make test` still passes.
 
+## Verification
+
+After changing the hash-table resizing strategy from fixed-size increments to capacity doubling, we ran the test suite using `make test`. All 168 tests passed, with 3 skipped, confirming that the corrected implementation passed the existing correctness tests.
+
+We then reran Experiment E1 (`E1_build`) with five repetitions using the same dataset sizes and insertion order.
+
+The original benchmark used code version `31da8dc` (session `54f480364efc`), while the corrected benchmark used code version `eb3808a` (session `2558ef9e961c`).
+
+The results demonstrated a significant improvement in hash-table construction performance. At 114,000 tracks, the median build time decreased from approximately 2,993.17 milliseconds to 133.42 milliseconds, representing a 22.43× speedup.
+
+The number of resizing operations also decreased from 117 to 14 at the largest dataset size. This supports the conclusion that repeated fixed-size resizing was responsible for much of the original build overhead.
+
+At smaller dataset sizes, the improvement was less substantial. At 1,000 tracks, the corrected implementation was slightly slower, taking 1.21 milliseconds compared with 1.10 milliseconds originally. However, the benefits increased considerably as the dataset size grew.
+
+
+![Figure 2: Hash Table Before and After Fix](../analysis/figures/INC02_E1_before_after.png)
+
+**Figure 2.** Comparison of median hash-table build times and resize counts before and after changing the resizing strategy to capacity doubling. At 114,000 tracks, build time decreased from 2,993.17 ms to 133.42 ms, while resizes decreased from 117 to 14.
+
+
 ## Impact on recommendations
 
 Would this bug have changed which index you recommend for any feature (F1–F4)? How?
 
+This bug primarily affects F4 (Catalog Imports), which requires efficiently inserting large numbers of Spotify tracks into an index.
+
+Before the fix, the hash table was less suitable for large catalog imports because it repeatedly resized by a fixed number of buckets. At 114,000 tracks, the original implementation required approximately 2,993.17 milliseconds to build the index. After implementing capacity doubling, build time decreased to 133.42 milliseconds, making the hash table a much stronger option for large-scale insertions.
+
+The fix also benefits F1 (Track Page), since the hash table can now be constructed more efficiently while still providing expected O(1) point lookups.
+
+However, hash tables are not necessarily the best choice for F2 (Prefix Search) or F3 (Range Queries), since they do not maintain keys in sorted order. Those features require additional experimental evidence before making final recommendations.
+
 ## Why the tests didn't catch it
 
 What kind of test *would* catch a bug like this?
+
+The original implementation passed the correctness tests because increasing the hash table's capacity by a fixed amount did not affect whether keys could be inserted or retrieved correctly. The tests verified that the hash table returned the expected results, but they did not evaluate how efficiently the table grew.
+
+A performance regression test could detect this issue by measuring the number of resizing operations and build time at increasing dataset sizes.
+
+For example, a test could construct hash tables with 1,000, 10,000, and 100,000 records and check whether the number of resizes grows approximately logarithmically rather than linearly with the number of inserted keys.
+
+This would help identify inefficient growth strategies even when the hash table produces correct results.
