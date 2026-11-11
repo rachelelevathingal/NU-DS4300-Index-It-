@@ -1,0 +1,3 @@
+0 10 results: 11 Stats(comparisons=25, nodes_visited=12, rotations=0, splits=0, resizes=0)
+500 510 results: 11 Stats(comparisons=24, nodes_visited=12, rotations=0, splits=0, resizes=0)
+980 990 results: 11 Stats(comparisons=23, nodes_visited=12, rotations=0, splits=0, resizes=0)
