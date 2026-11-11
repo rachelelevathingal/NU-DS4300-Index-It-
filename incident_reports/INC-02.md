@@ -1,4 +1,4 @@
-# INC-NN: <one-line title, e.g. "Hash-Table Build Suffers from Excessive Resizing">
+# INC-02 Hash-Table Build Suffers from Excessive Resizing
 
 Copy this file to `INC-01.md`, `INC-02.md`, … (one per bug) and fill in every section.
 Keep each heading exactly as written; `make check` looks for them.

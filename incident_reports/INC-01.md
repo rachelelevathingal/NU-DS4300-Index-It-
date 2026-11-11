@@ -1,4 +1,4 @@
-# INC-NN: <one-line title, e.g. "Sorted-List Point Lookup Uses Inefficient Linear Search">
+# INC-01: Sorted-List Point Lookup Uses Inefficient Linear SearchLinear Search
 
 Copy this file to `INC-01.md`, `INC-02.md`, … (one per bug) and fill in every section.
 Keep each heading exactly as written; `make check` looks for them.
