@@ -1,0 +1,4 @@
+# code_version e738e1e (before AVL fix)
+1..7 sorted: Stats(comparisons=13, nodes_visited=13, rotations=5, splits=0, resizes=0) {'distinct_keys': 7, 'height': 4}
+10,20,30: Stats(comparisons=3, nodes_visited=3, rotations=1, splits=0, resizes=0) {'distinct_keys': 3, 'height': 2}
+stored root height: 4 | real height: 2

@@ -325,6 +325,9 @@ def E6_bplus_tree_order(writer: ResultsWriter, tracks: list[dict], reps: int) ->
     )
  
     for order in orders:
+
+        memory = build_memory_bytes(lambda: make_index("bplus_tree", order=order), id_pairs)
+
         for rep in range(reps):
             # ---- track_id: build + point lookups
             common = dict(
@@ -336,7 +339,7 @@ def E6_bplus_tree_order(writer: ResultsWriter, tracks: list[dict], reps: int) ->
             height = index.structure_info().get("height", "")
             writer.record(
                 index, **common, operation="build", operation_param="",
-                n_ops=len(id_pairs), total_ns=ns, height=height,
+                n_ops=len(id_pairs), total_ns=ns, height=height, memory_bytes=memory
             )
             for operation, rate, queries in [("point_hit", 1.0, hits), ("point_miss", 0.0, misses)]:
                 index.reset_stats()
@@ -356,13 +359,13 @@ def E6_bplus_tree_order(writer: ResultsWriter, tracks: list[dict], reps: int) ->
             height = index.structure_info().get("height", "")
             writer.record(
                 index, **common, operation="build", operation_param="",
-                n_ops=len(tempo_pairs), total_ns=ns, height=height,
+                n_ops=len(tempo_pairs), total_ns=ns, height=height, memory_bytes=memory
             )
             index.reset_stats()
             ns = time_batch(lambda q: index.range_search(*q), ranges)
             writer.record(
                 index, **common, operation="range", operation_param=selectivity,
-                n_ops=len(ranges), total_ns=ns, height=height,
+                n_ops=len(ranges), total_ns=ns, height=height, 
             )
  
         print(f"E6: order={order} complete", flush=True)
