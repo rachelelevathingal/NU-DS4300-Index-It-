@@ -7,7 +7,7 @@ Keep each heading exactly as written; `make check` looks for them.
 
 Two or three sentences: what was slow, how much slower, which index and operation, and what fixed it.
 
-The hash-table implementation experienced inefficient build performance because its capacity increased by a fixed 1,024 buckets each time it resized. This caused frequent rehashing as the dataset grew. We fixed the issue by changing the resizing strategy to double the table's capacity, reducing median build time from 2,993.17 milliseconds to 133.42 milliseconds at 114,000 tracks, a 22.43× speedup.
+The hash table was taking longer than expected to build because it kept increasing the capacity by only 1024 buckets at a time. This meant that the table had to resize and rehash its entries many times as more of the Spotify tracks were addded We decided to fix it by doubling the capacity which would reduce the build time 2,993 milliseconds to 133 milliseconds. 
 
 ## Detection
 
@@ -15,9 +15,11 @@ Which experiment and which figure first showed the problem? What made you suspic
 
 The performance issue was identified during Experiment E1 (E1_build), which measured the time required to construct different indexes using Spotify track IDs.
 
-The hash-table implementation showed a substantial increase in build time as the dataset grew. At 1,000 tracks, the table resized twice and required approximately 1.10 milliseconds to build. At 114,000 tracks, it resized 117 times and required approximately 2,993.17 milliseconds.
+The hash-table implementation showed a substantial increase in build time using Spotify track IDs. 
 
-The unusually high number of resizing operations suggested that the hash table was repeatedly rebuilding its internal bucket structure, potentially causing unnecessary work during construction.
+The hash table stood out because the build time increased quickly as the dataset got larger. At 1,000 tracks, the table resized twice and took about 1.10 milliseconds to build. However when it was 114,000 tracks it had to resize  117 times. 
+
+The unusually high number of resizing operations suggested that the hash table was spending too much time resizing and moving entries instead of just inseting new tracks. 
 
 ## Expected vs. observed
 
@@ -26,9 +28,9 @@ What did you measure? Give numbers, e.g. "comparisons per lookup grew from X at 
 
 The hash-table index is expected to have an average O(1) insertion cost and approximately O(n) total build time when using an efficient resizing strategy.
 
-However, Experiment E1 showed that build time increased significantly as the number of Spotify tracks grew. At 1,000 tracks, construction required approximately 1.10 milliseconds and 2 resizes. At 114,000 tracks, construction required approximately 2,993 milliseconds and 117 resizes.
+However, Experiment E1 showed that build time increased significantly as the number of Spotify tracks grew. At 1,000 tracks, the tables only need 2 resizes. At 114,000 tracks, the number increased to 117. 
 
-The large number of resizing operations suggested that the hash table was performing unnecessary work during construction. Each resize requires redistributing existing entries, increasing the overall cost of building the index.
+The large number of resizing operations suggested that the hash table was performing unnecessary work during construction. 
 
 ## Evidence
 
@@ -56,9 +58,9 @@ and why the difference costs time but still gives correct answers.
 
 The performance issue occurs in `indexes/hash_table.py`, within the `_grow()` method, around lines 52–60.
 
-The original implementation increases the hash table's capacity by a fixed 1,024 buckets whenever the load factor exceeds its threshold. Each time the table grows, it creates a new bucket array and redistributes all existing entries.
+The original code increases the hash table's capacity by a fixed 1,024 buckets whenever the load factor exceeds its threshold. Each time the table grows, it creates a new bucket array and redistributes all existing entries.
 
-As the dataset becomes larger, this fixed-size growth strategy causes the table to resize repeatedly. Because every resize requires rehashing the existing keys, the cumulative work becomes increasingly expensive.
+As the dataset becomes larger, this fixed-size growth strategy causes the table to resize repeatedly. 
 
 A more efficient approach is to double the table's capacity during resizing. This reduces how frequently resizing occurs while preserving the hash table's functionality.
 
@@ -120,7 +122,7 @@ Would this bug have changed which index you recommend for any feature (F1–F4)?
 
 This bug primarily affects F4 (Catalog Imports), which requires efficiently inserting large numbers of Spotify tracks into an index.
 
-Before the fix, the hash table was less suitable for large catalog imports because it repeatedly resized by a fixed number of buckets. At 114,000 tracks, the original implementation required approximately 2,993.17 milliseconds to build the index. After implementing capacity doubling, build time decreased to 133.42 milliseconds, making the hash table a much stronger option for large-scale insertions.
+Before the fix, the hash table wasn't a great option for large imports because it kept resizing as more tracks were added. At 114,000 tracks, it took almost 3 seconds to build the index. This makes the hash table a much better option for handling large imports. 
 
 The fix also benefits F1 (Track Page), since the hash table can now be constructed more efficiently while still providing expected O(1) point lookups.
 
