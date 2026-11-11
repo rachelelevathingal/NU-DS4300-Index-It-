@@ -7,8 +7,7 @@ Keep each heading exactly as written; `make check` looks for them.
 
 Two or three sentences: what was slow, how much slower, which index and operation, and what fixed it.
 
-Instead of using binary search, the sorted-list indext instead uses seqiuential key lookup to go through the track ids. The lookup takes 5,226 microseconds compared to the 1.06 microseconds of the hash table. The proposed fix is to use the 
-bisect_left() to preform the binary search. We fixed the issue by updating the search() method to use the existing _bisect_left() binary-search helper, dramatically reducing the number of comparisons.
+Instead of using binary search, the sorted-list indext instead uses seqiuential key lookup to go through the track ids. At 5,226 microseconds, compared with about 1.06 microseconds for the hash table. We fixed the issue by updating the search() method to use the existing _bisect_left() binary-search helper, which made searching much more efficient. 
 
 
 ## Detection
@@ -17,7 +16,7 @@ Which experiment and which figure first showed the problem? What made you suspic
 
 The performance issue was discovered during Experiment E2 (E2_point_lookup), which measured how efficiently different index implementations searched for Spotify tracks. The sorted-list implementation showed an unexpectedly large number of comparisons as the dataset size increased.
 
-At 1,000 tracks, the sorted list required approximately 466 comparisons per successful lookup. At 114,000 tracks, this increased to approximately 43,515 comparisons per lookup. Since a sorted list should support efficient binary search, this pattern suggested that the implementation was performing a linear search instead, which is unecessarily long and inefficient. 
+At 1,000 tracks, the sorted list required approximately 466 comparisons per successful lookup. At 114,000 tracks, this increased to approximately 43,515 comparisons per lookup. Since a sorted list should support be able to use binary search rather than checking through so many keys. The results in Figure 1 made us believe that they were using linear search. 
 
 
 ## Expected vs. observed
@@ -115,7 +114,7 @@ After Fix Code Version:** `3c45879`
 Before/after comparison on the same workload and seeds (same experiment, two `code_version`s).
 Confirm `make test` still passes.
 
-After replacing the sequential search with binary search in indexes/sorted_list.py, we ran the test suite using make test. All 168 tests passed, with 3 skipped, confirming that the corrected implementation passes the existing correctness tests.
+After replacing the sequential search with binary search in indexes/sorted_list.py, we ran the test using make test. All 168 tests passed, with 3 skipped, confirming that the corrected implementation passes the existing correctness tests.
 
 We then reran Experiment E2 (E2_point_lookup) with five repetitions to measure the impact of the fix. The original benchmark session was 26d932c399ee, and the corrected benchmark session was 61015bb37183.
 
@@ -138,7 +137,7 @@ Would this bug have changed which index you recommend for any feature (F1–F4)?
 
 This bug primarily affects F1: Track page, which requires efficient point lookups using Spotify track IDs.
 
-Before the fix, the sorted-list implementation appeared to be an especially poor choice because its search performance degraded dramatically as the dataset grew. After the fix, the sorted list became a more reasonable option for point lookups because binary search substantially reduced its comparison count.
+Before the fix, the sorted list wasn't a good option for this because the number of comparisons incresed so much as more tracks were added. Once it was switched to binary search, this became a much better choice for point lookups. 
 
 However, hash tables remain a strong candidate for F1 because they provide expected O(1) lookup time, compared with O(log n) for a sorted list. Final recommendations should consider actual corrected lookup times, build costs, and memory usage.
 
@@ -151,10 +150,7 @@ The fix does not directly resolve performance issues for F2 (prefix search), F3 
 What kind of test *would* catch a bug like this?
 The original implementation passed the correctness tests because sequential searching still returned the correct results. The tests checked whether each search returned the expected values, rather than how efficiently those values were found.
 
-A performance regression test could catch this kind of bug by measuring the number of comparisons required for successful and unsuccessful lookups at increasing dataset sizes.
+A performance test could have caught this issue by testing searches with different dataset sizes and checking how the number of comparisons changed. 
 
-For example, a test could verify that the number of comparisons grows approximately with log₂(n), rather than increasing linearly with the number of stored keys.
-
-This would help detect inefficient implementations even when they return correct results.
-
+We could compare the number of for a differing range of tracks. If the search is using binary search correctly, the number of comparissns should stay within a logarithimic bound isntead of growing almost linearly with the number of tracks. 
 
